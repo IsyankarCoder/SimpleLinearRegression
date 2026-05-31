@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import confusion_matrix,ConfusionMatrixDisplay,classification_report,accuracy_score,recall_score
+from sklearn.metrics import confusion_matrix,ConfusionMatrixDisplay,classification_report,accuracy_score, f1_score,recall_score
 
 # Veri Okuma
 veriseti = pd.read_csv("dataR2.csv")
@@ -140,8 +140,120 @@ hata = 1- dogruluk
 duyarlilik = tp/(tp+fn)
 # Belirleyicilik (Specifity)
 belirleyicilik = tn/(tn+fp)
+# False Negative Rate
+FNR= 1- duyarlilik
+# False Positive Rate
+FPR =1 - belirleyicilik
+
+# Pozitif Ongorü Degeri / Kesinlik (Positive Predictive Value / Precision)
+kesinlik = tp/(tp+fp)
+# Negatif Ongorü Degeri (Negative Predictive Value)
+NPV = tn/(tn+fn)
+# F-olcusu (F-measure)
+FOlcusu = (2*duyarlilik*kesinlik)/(duyarlilik+kesinlik)
+
+print("Doğruluk (Accuracy) = ",dogruluk)
+print("Hata (Error Rate) = ",hata)
+print("Duyarlilik (Sensivity )= ",duyarlilik)
+print("Belirleyicilik (Specifity) = ",belirleyicilik)
+print("False Negative Rate = ",FNR)
+print("False Positive Rate =",FPR)
+print("Kesinlik (Positive Predicted Value / Precision) =",kesinlik)
+print("Negatif Öngörü  Değeri (Negative Predicted Value) = ",NPV)
+print("F-Ölçüsü (F-measure) = ",FOlcusu)
 
 
+# k-NN modelinin test veri seti üzerindeki performansı incelendiğinde doğruluk değerinin %74.29 olarak elde edildiği görülebilir.
+# Gerçekte Kanser hastası olanlar arasında doğru şekilde 
+# Kanser hastası olarak tahmin edilen hastaların oranı (duyarlılık) %82.61’dir.
+# Gerçekte Sağlıklı bireyler arasında doğru şekilde 
+# Sağlıklı olarak tahmin edilen örneklerin oranı (belirleyicilik) %58.33’tür.
+# Kanser hastası olarak tahmin edilen tüm hastalar arasında 
+# model tarafından da kanserli olarak doğru tahmin edilenlerin oranı (kesinlik) %79.17’dir.
+# Duyarlılık ve belirleyiciliğin harmonik ortalaması olan F-Ölçüsü ise %80.85’tir. 
+# Özellikle doğruluk ile F-Ölçüsünün veri setinde dengesizlik durumu olduğunda birlikte değerlendirilmesi önerilmektedir. 
+# F-Ölçüsünün çoklu-sınıf sınıflandırma (hedef nitelikte ikiden fazla kategori) olması durumunda kullanılması tavsiye edilmektedir.
 
+# Formüller yardimi ile hesaplanan yukarıda ki ölçütler ,sklearn.metrics'teki classification_report() fonk. yardimim ile hesaplanmaktadir.
+rapor =classification_report(y_true=y_test,y_pred=y_tahmin)
+labels = ["Saglikli","Kanser"]
+print(rapor)
 
+#Yukarıda elde edilen performans metrikleri raporunun ilk iki satırında
+#hem Kanser hem de Sağlıklı sınıfının pozitif sınıf alınmasıyla elde edilen metrikler bulunmaktadır.
+# Çünkü; duyarlılık, belirleyicilik, kesinlik, F-Ölçüsü gibi ölçütlerin değeri ve yorumu pozitif sınıf değiştiğinde değişmektedir.
+# Support değeri test veri setinde ilgili sınıflara ait kaç örneğin mevcut olduğunu göstermektedir. 
+# macro avg ise Sağlıklı ve Kanser için ayrı ayrı elde edilen performans ölçütlerinin ortalamasıdır (makro ortalama değerleri).
 
+#Eğer Sağlıklı kategorisi pozitif sınıf olarak alınmak istenirse 
+#Aşağıdaki kod yardımı ile benzer hesaplamalar yapılabilir (labels parametresinde kategorilerin sırası değiştirilmiştir).
+# Sağlıklı sınıfı pozitif sınıf olarak kabul edilirse
+my_cm = confusion_matrix(y_true=y_test,y_pred=y_tahmin)
+labels= ["Saglikli","Kanser"]
+my_cm
+
+tn2,fp2,fn2,tp2  = my_cm.ravel()
+print("True Negatives :",tn2)
+print("False Positives :",fp2)
+print("False Negatives :",fn2)
+print("True Positives :",tp2)
+
+# En İyi Komşu Sayısının Belirlenmesi 
+# En iyi  k  komşu sayısının belirlenmesi için 2 ile 20 arasında  
+# değeri aşağıdaki kodlar yardımı ile denenmiştir. 
+# Örnek olması için doğruluk ve duyarlılık değerleri her bir k-NN modeli için hesaplanarak sırasıyla dogruluk ve duyarlilik listelerinde saklanmıştır.
+# sklearn.metrics içindeki accuracy_score() ve f1_score() fonksiyonları kullanılmıştır.
+# Yine pozitif sınıfa göre yorumlanan performans metrikleri için average ve pos_label parametreleri de kullanılabilmektedir.
+# precision_score(), recall_score() fonksiyonları da recall_score() gibi kullanılabilir.
+
+dogruluk = []
+fOlcusu = []
+
+k = range(2, 21)
+
+for i in k:
+    knn_modeli = KNeighborsClassifier(
+        n_neighbors=i,
+        metric="euclidean"
+    )
+
+    knn_modeli.fit(X_train_n, y_train)
+
+    y_tahmin = knn_modeli.predict(X_test_n)
+
+    dgrlk = accuracy_score(y_test, y_tahmin)
+    fOlc = f1_score(
+        y_test,
+        y_tahmin,
+        average='binary',
+        pos_label="Kanser"
+    )
+
+    dogruluk.append(dgrlk)
+    fOlcusu.append(fOlc)
+
+# Döngü bittikten sonra çiz
+plt.plot(k, dogruluk, 'bx-')
+plt.xticks(k)
+plt.title("k-NN Model Performansı")
+plt.xlabel("k Komşu Sayisi")
+plt.ylabel("Doğruluk")
+plt.show()
+
+plt.plot(k, fOlcusu, 'rx-')
+plt.xticks(k)
+plt.title("k-NN Model Performansı")
+plt.xlabel("k Komşu Sayisi")
+plt.ylabel("F1 Skoru")
+plt.show()
+
+# Performans değerlendirme ölçülerinden doğruluk, belirleyicilik, kesinlik, negatif öngörü değeri ve F-Ölçüsü değerlerinin olabildiğince 1’e yakın olması beklenir.
+# Model seçimi yapılırken bu noktaya dikkat edilmelidir.
+# Grafiklerdeki noktaların daha iyi okunabilmesi için doğruluk ve hata değerleri Tablo 22’de yazdırılmış, 
+# önce doğruluk sonra da F-Ölçüsü değerlerine göre büyükten küçüğe sıralanmıştır.
+# En iyi başarım  k=2  için elde edilmiştir; ancak ikili sınıflandırma için  k’nın tek sayı alınması tavsiyesi göz önünde bulundurularak k = 5 olarak seçilmiştir.
+# Model seçiminin de bu şekilde yapılmasıyla gelecek olan yeni örnekte  k = 5 için kurulan k-NN modeli dikkate alınarak meme kanseri teşhisinde bulunulabilir.
+    
+    
+    
+    
